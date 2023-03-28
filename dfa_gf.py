@@ -206,12 +206,9 @@ def minimize_dfa(dfa: DFA):
                 # Records the pair for deferred marking.
                 unmarked[(p, q)].append((r, s))
 
-    print(f'Unmarked: {unmarked}')
-
     # Minimizes the dfa by removing extraneous states
     # and redirecting states which point to them
     min_transitions = deepcopy(dfa.transitions)
-    print(unmarked.keys())
     for (p, q) in unmarked.keys():
         for key_, value_ in dfa.transitions.items():
             if value_ == q:
