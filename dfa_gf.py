@@ -62,17 +62,22 @@ class DFA:
         return self.state in self.final_states
 
     def minimize(self) -> DFA:
+        """Not used.
+
+        Returns:
+            Minimized DFA.
+        """
         # return the minimal DFA
         # the minimisation.pdf which is a section
         # of the lecture notes :
         # Thorsten Altenkirch, Venanzio Capretta, and Henrik Nilsson.
         # "Languages and Computation." (2019).
-        minimize_dfa(self)
+        return minimize_dfa(self)
 
 
 D = []
 
-# example from video
+# D0 -- example from video
 # a's must not follow b's
 D.append(
     DFA(
@@ -91,7 +96,7 @@ D.append(
     )
 )
 
-# example from video
+# D1 -- example from video
 # a % 2 must equal b % 2
 D.append(
     DFA(
@@ -112,7 +117,7 @@ D.append(
     )
 )
 
-# example from minimisation.pdf
+# D2 -- example from minimisation.pdf
 # test case : D2.minimize()
 D.append(
     DFA(
@@ -139,7 +144,7 @@ D.append(
 
 
 def run_dfa(dfa: DFA) -> bool:
-    
+
     word = input('Enter word: ')
     return dfa.run(word=word)
 
@@ -149,61 +154,84 @@ def minimize_dfa(dfa: DFA):
     pairs = {}
     states = sorted(dfa.states)
     n = 0
+
+    # creates list of all state-pairs
     for r in states[:]:
         for s in states[-1:n:-1]:
             pairs[(r, s)] = 0
         n += 1
 
-    for key_ in pairs.keys():
-        if (key_[0] in dfa.final_states) ^ (key_[1] in dfa.final_states):
-            pairs[key_] = 1
+    # marks all pairs containing final states
+    for (r, s) in pairs.keys():
+        if (r in dfa.final_states) ^ (s in dfa.final_states):
+            pairs[(r, s)] = 1
 
-    marked = [
-        key_ for key_ in pairs.keys() if pairs[key_]
-    ]
-
-    unmarked = {
-        key_: [] for key_ in pairs.keys() if not pairs[key_]
-    }
+    # creates a list of marked state pairs, and a dictionary of unmarked pairs
+    marked = [key_ for key_ in pairs.keys() if pairs[key_]]
+    unmarked = {key_: [] for key_ in pairs.keys() if not pairs[key_]}
 
     def mark_pair(key_: tuple[int, int]) -> None:
-        marked.append(unmarked.pop(key_))
+        """Marks a state pair and checks for any linked pairs to mark.
+
+        Args:
+            key_ (tuple[int, int]): The state pair to mark [(r, s)].
+        """
+        marked.append(unmarked[key_])
         try:
             for _ in unmarked[key_]:
                 mark_pair(_)
         except KeyError:
             pass
+        unmarked.pop(key_)
 
-    print(unmarked)
-    
-    unmarked_keys, _ = unmarked.items()
-
-    for (r, s) in unmarked_keys:
-        print(f'({r}, {s})')
+    # Checks all unmarked state pairs, with indeterminate pairs
+    # being flagged for later marking.
+    unmarked_copy = deepcopy(unmarked)
+    for (r, s) in unmarked_copy.keys():
         for symbol in sorted(dfa.symbols):
-            print(f'{symbol}')
             p = dfa.transitions[r, symbol]
             q = dfa.transitions[s, symbol]
+
             if p == q:
-                print('p=q')
+                # Same state, no info.
                 continue
             elif p == r and q == s:
-                print('p=q and r=s')
+                # No point in adding the same state pair under itself.
                 continue
             elif (p, q) in marked:
-                print('Distinguishable.')
+                # Distinguishable!
                 mark_pair((r, s))
                 break
             else:
-                print('Indistinguishable')
+                # Records the pair for deferred marking.
                 unmarked[(p, q)].append((r, s))
 
-    print(pairs)
+    print(f'Unmarked: {unmarked}')
 
-    print(marked)
+    # Minimizes the dfa by removing extraneous states
+    # and redirecting states which point to them
+    min_transitions = deepcopy(dfa.transitions)
+    print(unmarked.keys())
+    for (p, q) in unmarked.keys():
+        for key_, value_ in dfa.transitions.items():
+            if value_ == q:
+                min_transitions[key_] = p
+            if key_[0] == q:
+                min_transitions.pop(key_)
+                # for symbol_ in dfa.symbols:
+                #     print(f'popping: {q, symbol_}')
+
+    return DFA(
+        Q=dfa.states,
+        Sigma=dfa.symbols,
+        delta=min_transitions,
+        q0=dfa.initial_state,
+        F=dfa.final_states
+    )
 
 
 def main():
+
     while True:
         choice = input(f'Enter DFA number (0-{len(D)-1}) (X to exit): ')
         try:
@@ -213,18 +241,20 @@ def main():
                 quit()
             print('Invalid input.\n')
             break
+
         if choice >= len(D):
             print('DFA does not exist.\n')
             break
         else:
             action = input(
                 f'D{choice} = {D[choice]}\n\n'
-                f'Enter A to run or B to minimize (X to exit): '
+                f'Enter choice: \n\n1: Run DFA\n2: Minimize DFA\nX: Exit\n\n'
+                f'or input anything else to go back: '
             )
-            if action.lower() == 'a':
+            if action == '1':
                 result = run_dfa(D[choice])
                 print(result)
-            if action.lower() == 'b':
+            if action == '2':
                 min_dfa = minimize_dfa(D[choice])
                 print(min_dfa)
             if action.lower() == 'x':
